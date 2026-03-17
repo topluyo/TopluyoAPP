@@ -126,12 +126,14 @@ TopluyoAPP.on(">signal/room",function(data,source){
   */
 })
 ```
+
 ### TopluyoAPP.up("<signal/broadcast", {data:any})
 Bu event odadaki tüm kişilere mesaj gönderirir. 
 + Mesaj boyutu maksimum 2000 karakter olmalıdır.
 ```js
 TopluyoAPP.up("<signal/broadcast", {data:"Hello World!"})
 ```
+
 ### TopluyoAPP.up("<signal/direct", {source:2045n,data:"Eren how are you =)"})
 Bu event odadaki tüm kişilere mesaj gönderirir. 
 + Mesaj boyutu maksimum 2000 karakter olmalıdır.
@@ -139,6 +141,14 @@ Bu event odadaki tüm kişilere mesaj gönderirir.
 TopluyoAPP.up("<signal/direct", {source:2045n,data:"Eren how are you =)"})
 ```
 
+### TopluyoAPP.on(">signal/message", callback(data,source))
+Bu event mesaj geldiği zaman tetiklenir
+```js
+TopluyoAPP.on(">signal/message", function(data,source){
+  console.log(data) // "Hello World!"
+  console.log(source) // 2022n
+})
+```
 
------
+----
 Topluyo Ekibi =)
