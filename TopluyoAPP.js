@@ -28,3 +28,11 @@ TopluyoAPP.up = function(action,data){
 document.addEventListener("DOMContentLoaded",function(){
   TopluyoAPP.up("<signal/join")
 })
+
+TopluyoAPP.on(">signal/user",function(data,source){
+  TopluyoAPP.user = data
+})
+
+TopluyoAPP.on(">signal/room",function(data,source){
+  TopluyoAPP.users = data
+})
