@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SOUNDBOARD V4 - STABLE</title>
+<script src="https://topluyo.github.io/TopluyoAPP/TopluyoAPP.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Mono:wght@400;700&display=swap');
+
+  :root {
+    --c1: #ff2d55; --c2: #0a84ff; --c3: #bf5af2; --c4: #30d158; --c5: #ff9f0a; --c6: #00e5ff;
+    --bg: #050508; --surface: #0d0d14; --border: rgba(255,255,255,0.06);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; background: var(--bg); font-family: 'Space Mono', monospace; overflow: hidden; }
+
+  body::before {
+    content: ''; position: fixed; inset: 0;
+    background-image: linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+    background-size: 60px 60px; pointer-events: none; z-index: 0;
+  }
+
+  .stage {
+    position: relative; z-index: 1; width: 100%; height: 100vh;
+    display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(2, 1fr);
+    gap: 16px; padding: 16px;
+  }
+
+  .btn, .mute-zone {
+    position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 12px; border-radius: 20px; background: var(--surface); border: 1px solid var(--border);
+    overflow: hidden; transition: all 0.1s ease; user-select: none; cursor: pointer;
+  }
+
+  .btn:nth-child(1) { --accent: var(--c1); }
+  .btn:nth-child(2) { --accent: var(--c2); }
+  .btn:nth-child(3) { --accent: var(--c3); }
+  .btn:nth-child(4) { --accent: var(--c4); }
+  .btn:nth-child(5) { --accent: var(--c5); }
+  .mute-zone { --accent: var(--c6); }
+
+  .btn::before, .mute-zone::before {
+    content: ''; position: absolute; inset: 0; border-radius: inherit;
+    background: radial-gradient(ellipse 80% 60% at 50% 110%, var(--accent), transparent 70%);
+    opacity: 0.15;
+  }
+
+  .btn:hover, .mute-zone:hover { transform: scale(1.02); border-color: rgba(255,255,255,0.2); box-shadow: 0 0 20px -5px var(--accent); }
+  .btn:active, .btn.firing { transform: scale(0.92); opacity: 0.7; }
+  .mute-zone.is-muted { border-color: var(--c1); }
+  .mute-zone.is-muted .btn-icon { filter: grayscale(1) opacity(0.5); }
+
+  .btn-icon { font-size: clamp(2rem, 5vw, 3.2rem); filter: drop-shadow(0 0 10px var(--accent)); pointer-events: none; }
+  .btn-label { font-family: 'Bebas Neue', sans-serif; font-size: clamp(1rem, 2.2vw, 1.5rem); letter-spacing: 0.1em; color: #fff; pointer-events: none; }
+
+  .flash-overlay { position: fixed; inset: 0; pointer-events: none; z-index: 100; opacity: 0; }
+  .flash-overlay.flash { animation: flash-anim 0.2s ease-out forwards; }
+  @keyframes flash-anim { 0% { opacity: 0.25; } 100% { opacity: 0; } }
+
+  .status { position: fixed; bottom: 12px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 8px; font-size: 10px; color: rgba(255,255,255,0.3); z-index: 10; }
+  .dot { width: 6px; height: 6px; border-radius: 50%; background: #444; }
+  .dot.live { background: #30d158; box-shadow: 0 0 8px #30d158; animation: pulse 2s infinite; }
+  .dot.error { background: #ff2d55; box-shadow: 0 0 8px #ff2d55; }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+</style>
+</head>
+<body>
+
+<div class="stage" id="stage">
+  <button class="btn" onclick="fireButton(0, this)"><span class="btn-icon">😂</span><span class="btn-label">GULME</span></button>
+  <button class="btn" onclick="fireButton(1, this)"><span class="btn-icon">🚨</span><span class="btn-label">BIP</span></button>
+  <button class="btn" onclick="fireButton(2, this)"><span class="btn-icon">👎</span><span class="btn-label">YUHLAMA</span></button>
+  <button class="btn" onclick="fireButton(3, this)"><span class="btn-icon">🎺</span><span class="btn-label">KORNA</span></button>
+  <button class="btn" onclick="fireButton(4, this)"><span class="btn-icon">🦆</span><span class="btn-label">ORDEK</span></button>
+  <div class="mute-zone" id="muteToggle"><span class="btn-icon" id="muteEmoji">🔊</span><span class="btn-label" id="muteText">SES ACIK</span></div>
+</div>
+
+<div class="flash-overlay" id="flashOverlay"></div>
+<div class="status">
+  <div class="dot" id="statusDot"></div>
+  <span id="statusText">BAĞLANIYOR...</span>
+</div>
+
+<script>
+  let isMuted = false;
+  let audioCtx = null;
+  const COLORS = ['#ff2d55', '#0a84ff', '#bf5af2', '#30d158', '#ff9f0a'];
+
+  // Ses Dosyaları
+  const audioUrls = [
+    "https://pic.pikbest.com/00/86/92/5888piC7888piCHMZ.mp3", // Gülme
+    "https://img.pikbest.com/09/34/15/10ZpIkbEsT58A.mp3",    // Bip
+    "https://pic.pikbest.com/20/08/87/43r888piCDuC.mp3",    // Yuhlama
+    "https://img.pikbest.com/09/34/15/49YpIkbEsTxjs.mp3",     // Korna
+    "https://img.pikbest.com/09/34/15/pIkbEsT3ppIkbEsTuKj.mp3" // ördek
+  ];
+
+  const players = audioUrls.map(url => {
+    const a = new Audio(url);
+    a.preload = "auto";
+    return a;
+  });
+
+  // Ördek sesi sentezleyici (Link olmadığı için)
+  function playDuckSynth() {
+    if (isMuted) return;
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const t = audioCtx.currentTime;
+    const osc = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(400, t);
+    osc.frequency.exponentialRampToValueAtTime(300, t + 0.15);
+    g.gain.setValueAtTime(0.2, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.2);
+    osc.connect(g); g.connect(audioCtx.destination);
+    osc.start(); osc.stop(t + 0.2);
+  }
+
+  function playSound(id) {
+    if (isMuted) return;
+    if (id === 4) { playDuckSynth(); return; }
+    if (players[id]) {
+      players[id].pause();
+      players[id].currentTime = 0;
+      players[id].play().catch(() => {});
+    }
+  }
+
+  function fireButton(id, el) {
+    playSound(id);
+    if(el) {
+      el.classList.add('firing');
+      setTimeout(() => el.classList.remove('firing'), 150);
+    }
+    // Hata önleyici güvenli gönderim
+    try { 
+      TopluyoAPP.up("<signal/broadcast", { data: { sound: id } }); 
+    } catch(err) {
+      console.warn("Signal error: Origin mismatch or busy.");
+    }
+  }
+
+  // Mute
+  const muteBtn = document.getElementById('muteToggle');
+  muteBtn.addEventListener('click', () => {
+    isMuted = !isMuted;
+    muteBtn.classList.toggle('is-muted', isMuted);
+    document.getElementById('muteEmoji').textContent = isMuted ? '🔇' : '🔊';
+    document.getElementById('muteText').textContent = isMuted ? 'SES KAPALI' : 'SES ACIK';
+  });
+
+  function remoteFlash(color) {
+    const f = document.getElementById('flashOverlay');
+    f.style.background = color;
+    f.classList.remove('flash');
+    void f.offsetWidth;
+    f.classList.add('flash');
+  }
+
+  // TOPLUYO
+  const statusDot = document.getElementById('statusDot');
+  const statusText = document.getElementById('statusText');
+
+  TopluyoAPP.on(">signal/connected", () => {
+    statusDot.className = 'dot live';
+    statusText.textContent = 'HAZIR';
+  });
+
+  TopluyoAPP.on(">signal/disconnected", () => {
+    statusDot.className = 'dot error';
+    statusText.textContent = 'BAĞLANTI KESİLDİ';
+    setTimeout(() => { 
+        statusDot.className = 'dot live'; 
+        statusText.textContent = 'HAZIR'; 
+    }, 3000);
+  });
+
+  TopluyoAPP.on(">signal/message", (data) => {
+    if (data && typeof data.sound === 'number') {
+      const id = data.sound;
+      playSound(id);
+      const btns = document.querySelectorAll('.btn');
+      if(btns[id]) {
+        btns[id].classList.add('firing');
+        setTimeout(() => btns[id].classList.remove('firing'), 150);
+      }
+      remoteFlash(COLORS[id] + '44');
+    }
+  });
+
+  setTimeout(() => { if(statusText.textContent === 'BAĞLANIYOR...') { statusText.textContent = 'HAZIR'; statusDot.className='dot live'; } }, 3000);
+</script>
+</body>
+</html>
