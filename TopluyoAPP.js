@@ -2,7 +2,6 @@ const TopluyoAPP = {}
 TopluyoAPP._events = [];
 TopluyoAPP.on = function(type,event){ TopluyoAPP._events.push({type,event}) }
 window.addEventListener('message', (event)=>{
-  console.log("I3",event.data)
   if (!event.origin.endsWith("topluyo.com")) return;
   let datas = (event.data)
   if(!Array.isArray(datas)){
